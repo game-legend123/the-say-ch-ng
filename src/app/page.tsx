@@ -33,6 +33,28 @@ const normalizeString = (str: string): string => {
     .trim();
 };
 
+const levenshteinDistance = (s1: string, s2: string): number => {
+    const track = Array(s2.length + 1).fill(null).map(() =>
+    Array(s1.length + 1).fill(null));
+    for (let i = 0; i <= s1.length; i += 1) {
+       track[0][i] = i;
+    }
+    for (let j = 0; j <= s2.length; j += 1) {
+       track[j][0] = j;
+    }
+    for (let j = 1; j <= s2.length; j += 1) {
+       for (let i = 1; i <= s1.length; i += 1) {
+          const indicator = s1[i - 1] === s2[j - 1] ? 0 : 1;
+          track[j][i] = Math.min(
+             track[j][i - 1] + 1, // deletion
+             track[j - 1][i] + 1, // insertion
+             track[j - 1][i - 1] + indicator, // substitution
+          );
+       }
+    }
+    return track[s2.length][s1.length];
+};
+
 export default function Home() {
   const [gameState, setGameState] = useState<'setup' | 'playing' | 'result'>('setup');
   const [difficulty, setDifficulty] = useState(5);
@@ -84,10 +106,14 @@ export default function Home() {
   const handleSubmitGuess = () => {
     const normalizedGuess = normalizeString(playerGuess);
     const normalizedOriginal = normalizeString(originalSentence);
+    const distance = levenshteinDistance(normalizedGuess, normalizedOriginal);
+    
+    // Ngưỡng lỗi cho phép: 20% độ dài câu gốc, nhưng tối thiểu là 1 và tối đa là 5
+    const threshold = Math.max(1, Math.min(Math.floor(normalizedOriginal.length * 0.2), 5));
 
-    if (normalizedGuess === normalizedOriginal) {
+    if (distance === 0) {
       setResult({ message: 'Xuất sắc! Bạn đã đoán chính xác tuyệt đối!', isCorrect: true });
-    } else if (normalizedOriginal.includes(normalizedGuess) || normalizedGuess.includes(normalizedOriginal)) {
+    } else if (distance <= threshold) {
        setResult({ message: 'Rất gần! Nội dung của bạn gần như chính xác.', isCorrect: true });
     } else {
       setResult({ message: 'Chưa đúng rồi. Cùng xem lại câu gốc nhé!', isCorrect: false });
